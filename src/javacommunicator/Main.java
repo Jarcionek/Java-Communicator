@@ -26,6 +26,7 @@ public class Main {
     private static ObjectOutputStream out = null;
     private static ObjectInputStream in = null;
     private static JTextArea textArea = null;
+    private static JScrollPane scrollPane = null;
     private static boolean connected = false;
 
     public static void main(String[] args) throws Exception {
@@ -39,7 +40,7 @@ public class Main {
                 + "to set server", title, JOptionPane.PLAIN_MESSAGE);
 
         // create gui
-        JFrame frame = new JFrame(title);
+        final JFrame frame = new JFrame(title);
         JPanel contentPane = new JPanel(new BorderLayout());
         textArea = new JTextArea();
         textArea.setEditable(false);
@@ -54,7 +55,8 @@ public class Main {
                 }
             }
         });
-        contentPane.add(new JScrollPane(textArea), BorderLayout.CENTER);
+        scrollPane = new JScrollPane(textArea);
+        contentPane.add(scrollPane, BorderLayout.CENTER);
         contentPane.add(textField, BorderLayout.SOUTH);
         frame.setContentPane(contentPane);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -72,10 +74,9 @@ public class Main {
         Socket s;
         if (IP.equals("")) {
             ServerSocket ss = new ServerSocket(port);
-            log("Server set at port: " + port + "\n");
+            log("Server set at port: " + port);
             s = ss.accept();
-            log(s.getInetAddress() + " connected to you" + "\n");
-            sendMsg(name + ": you are connected");
+            log(s.getInetAddress() + " connected to you");
         } else {
             s = new Socket(IP, port);
             log("connected");
@@ -84,6 +85,9 @@ public class Main {
 
         // create streams
         out = new ObjectOutputStream(s.getOutputStream());
+        if (IP.equals("")) {
+            sendMsg(name + ": you are connected");
+        }
         out.flush();
         in = new ObjectInputStream(s.getInputStream());
 
@@ -110,5 +114,6 @@ public class Main {
 
     private static synchronized void log(String msg) {
         textArea.append(msg + "\n");
+        textArea.setCaretPosition(textArea.getText().length());
     }
 }
