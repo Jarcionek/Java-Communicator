@@ -1,6 +1,7 @@
 package javacommunicator;
 
 import java.awt.BorderLayout;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -11,7 +12,6 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.util.logging.Level;
@@ -32,13 +32,14 @@ public class Main {
     private static JTextArea textArea = null;
     private static JScrollPane scrollPane = null;
     private static boolean connected = false;
+    private static Socket s = null;
 
     public static void main(String[] args) throws Exception {
         // get user name, IP and port
         String title = "Java communicator";
         final String name = JOptionPane.showInputDialog(null, "Give your name:",
                 title, JOptionPane.PLAIN_MESSAGE);
-        int port = Integer.parseInt(JOptionPane.showInputDialog(null, "Give port:",
+        final int port = Integer.parseInt(JOptionPane.showInputDialog(null, "Give port:",
                 title, JOptionPane.PLAIN_MESSAGE));
         String IP = JOptionPane.showInputDialog(null, "Give IP or leave blank "
                 + "to set server", title, JOptionPane.PLAIN_MESSAGE);
@@ -48,13 +49,14 @@ public class Main {
         JPanel contentPane = new JPanel(new BorderLayout());
         textArea = new JTextArea();
         textArea.setEditable(false);
+        textArea.setLineWrap(true);
+        textArea.setTabSize(2);
         final JTextField textField = new JTextField();
         textField.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (connected) {
-                    sendMsg(name + ": " + textField.getText());
-                    log("me: " + textField.getText());
+                    sendMsg(textField.getText());
                     textField.setText("");
                 }
             }
@@ -67,39 +69,48 @@ public class Main {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                sendMsg(name + " has closed communicator");
+                sendMsg("<-- has left a chat -->");
+                if (s != null) {
+                    try {
+                        s.close();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
                 System.exit(0);
             }
         });
         frame.setSize(300, 200);
         frame.setVisible(true);
+        showIPs();
 
-        // create socket
-        Socket s;
+        // create sockets
         if (IP.equals("")) {
-            ServerSocket ss = new ServerSocket(port);
+            (new Thread() {
+                @Override
+                public void run() {
+                    Server.main(new String[] {"" + port});
+                }
+            }).start();
+            s = new Socket("localhost", port);
             log("Server set at port: " + port);
-            showIPs();
-            s = ss.accept();
-            log(s.getInetAddress() + " connected to you");
         } else {
             s = new Socket(IP, port);
-            log("connected");
         }
         connected = true;
+        textField.requestFocusInWindow();
 
         // create streams
         out = new ObjectOutputStream(s.getOutputStream());
-        if (IP.equals("")) {
-            sendMsg(name + ": you are connected");
-        }
         out.flush();
+        sendMsg(name);
         in = new ObjectInputStream(s.getInputStream());
 
         // wait for messages
         while (true) {
             try {
                 log(in.readObject().toString());
+                Toolkit.getDefaultToolkit().beep();
             } catch (Exception ex) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                 System.exit(0);
@@ -128,15 +139,21 @@ public class Main {
     private static void showIPs() {
         try {
             InetAddress thisIp = InetAddress.getLocalHost();
-            log("Internal IP: " + thisIp.getHostAddress());
-            URL whatismyip = new URL("http://checkip.dyndns.org:8245/");
-            BufferedReader inIP = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
-            String IP = inIP.readLine()
-                    .replace("<html><head><title>Current IP Check</title></head><body>Current IP Address: ", "")
-                    .replace("</body></html>", "");
-            log("External IP: " + IP);
+            log("Your internal IP is : " + thisIp.getHostAddress());
+            log("Your external IP is : " + getExternalIP());
         } catch (Exception ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private static String getExternalIP() {
+        try {
+            URL whatismyip = new URL("http://checkip.dyndns.org:8245/");
+            BufferedReader inIP = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
+            return inIP.readLine().replace("<html><head><title>Current IP Check</title></head><body>Current IP Address: ", "").replace("</body></html>", "");
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            return "ex";
         }
     }
 }
