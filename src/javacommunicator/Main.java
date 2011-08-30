@@ -5,11 +5,15 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFrame;
@@ -75,6 +79,7 @@ public class Main {
         if (IP.equals("")) {
             ServerSocket ss = new ServerSocket(port);
             log("Server set at port: " + port);
+            showIPs();
             s = ss.accept();
             log(s.getInetAddress() + " connected to you");
         } else {
@@ -104,6 +109,9 @@ public class Main {
     }
 
     private static void sendMsg(String msg) {
+        if (out == null) {
+            return;
+        }
         try {
             out.writeObject(msg);
             out.flush();
@@ -115,5 +123,20 @@ public class Main {
     private static synchronized void log(String msg) {
         textArea.append(msg + "\n");
         textArea.setCaretPosition(textArea.getText().length());
+    }
+
+    private static void showIPs() {
+        try {
+            InetAddress thisIp = InetAddress.getLocalHost();
+            log("Internal IP: " + thisIp.getHostAddress());
+            URL whatismyip = new URL("http://checkip.dyndns.org:8245/");
+            BufferedReader inIP = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
+            String IP = inIP.readLine()
+                    .replace("<html><head><title>Current IP Check</title></head><body>Current IP Address: ", "")
+                    .replace("</body></html>", "");
+            log("External IP: " + IP);
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }
